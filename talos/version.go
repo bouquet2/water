@@ -58,29 +58,39 @@ func (c *Client) GetClusterInfo() (*ClusterInfo, error) {
 		// Get node endpoint (IP address)
 		endpoint, err := c.getNodeEndpoint(ctx, nodeName)
 		if err != nil {
-			log.Debug().Err(err).Str("node", nodeName).Msg("Failed to get node endpoint")
+			log.Warn().Err(err).Str("node", nodeName).Msg("Failed to get node endpoint")
 			endpoint = nodeName // Fallback to node name
+		}
+
+		// Get the actual Talos version for this specific node
+		nodeVersion, err := c.getNodeTalosVersion(ctx, endpoint)
+		if err != nil {
+			log.Warn().Err(err).Str("node", nodeName).Msg("Failed to get node Talos version, using cluster version")
+			nodeVersion = talosVersion // Fallback to cluster version
 		}
 
 		nodes = append(nodes, NodeInfo{
 			Name:           nodeName,
-			TalosVersion:   talosVersion, // Use the same version for all nodes
-			Ready:          true,         // Assume ready if Kubernetes API can see it
+			TalosVersion:   nodeVersion, // Use the actual version for this node
+			Ready:          true,        // Assume ready if Kubernetes API can see it
 			IsControlPlane: isControlPlane,
 			Endpoint:       endpoint,
 		})
 	}
 
 	// Get Kubernetes version by querying the Kubernetes API through Talos
+	var k8sVersion string
 	k8sVersionDetailed, err := k8s.GetDetailedVersion(ctx)
 	if err != nil {
 		log.Warn().Err(err).Msg("Failed to get Kubernetes version, using placeholder")
-		k8sVersionDetailed.GitVersion = "unknown"
+		k8sVersion = "unknown"
+	} else {
+		k8sVersion = k8sVersionDetailed.GitVersion
 	}
 
 	clusterInfo := &ClusterInfo{
 		TalosVersion: talosVersion,
-		K8sVersion:   k8sVersionDetailed.GitVersion,
+		K8sVersion:   k8sVersion,
 		Nodes:        nodes,
 	}
 
@@ -104,6 +114,55 @@ func (c *Client) isControlPlaneNode(ctx context.Context, nodeName string) (bool,
 }
 
 // getNodeEndpoint retrieves the endpoint (IP address) for a node
+// First tries to get the correct Talos endpoint, falls back to Kubernetes node address
 func (c *Client) getNodeEndpoint(ctx context.Context, nodeName string) (string, error) {
+	// First try to get the endpoint from Talos configuration
+	endpoint, err := c.GetNodeEndpointFromTalos(ctx, nodeName)
+	if err == nil {
+		log.Debug().
+			Str("node", nodeName).
+			Str("endpoint", endpoint).
+			Msg("Using Talos endpoint for node")
+		return endpoint, nil
+	}
+
+	log.Debug().
+		Str("node", nodeName).
+		Err(err).
+		Msg("Failed to get Talos endpoint, falling back to Kubernetes node address")
+
+	// Fall back to Kubernetes node address (which may be incorrect)
 	return k8s.GetNodeEndpoint(ctx, nodeName)
+}
+
+// getNodeTalosVersion gets the Talos version for a specific node
+func (c *Client) getNodeTalosVersion(ctx context.Context, nodeEndpoint string) (string, error) {
+	// Create a client for this specific node
+	nodeClient, err := c.CreateNodeClient(nodeEndpoint)
+	if err != nil {
+		return "", fmt.Errorf("failed to create client for node %s: %w", nodeEndpoint, err)
+	}
+	defer nodeClient.Close()
+
+	// Get version from this specific node
+	timeoutCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
+	defer cancel()
+
+	versionResp, err := nodeClient.Version(timeoutCtx)
+	if err != nil {
+		return "", fmt.Errorf("failed to get version from node %s: %w", nodeEndpoint, err)
+	}
+
+	// Extract version from the first message
+	for _, message := range versionResp.Messages {
+		if message.Version != nil && message.Version.Tag != "" {
+			log.Debug().
+				Str("endpoint", nodeEndpoint).
+				Str("version", message.Version.Tag).
+				Msg("Retrieved Talos version from node")
+			return message.Version.Tag, nil
+		}
+	}
+
+	return "", fmt.Errorf("no version found in response from node %s", nodeEndpoint)
 }

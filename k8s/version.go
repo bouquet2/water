@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/bouquet2/water/version"
 	"github.com/rs/zerolog/log"
@@ -22,29 +23,86 @@ type VersionInfo struct {
 	Platform     string
 }
 
-// GetDetailedVersion retrieves detailed Kubernetes version information
+// retryKubernetesAPICall retries a Kubernetes API call with exponential backoff
+func retryKubernetesAPICall[T any](ctx context.Context, operation func() (T, error), operationName string) (T, error) {
+	const maxRetries = 3
+	const baseDelay = 2 // seconds
+
+	var result T
+	var lastErr error
+
+	for attempt := 1; attempt <= maxRetries; attempt++ {
+		log.Debug().
+			Int("attempt", attempt).
+			Int("max_retries", maxRetries).
+			Str("operation", operationName).
+			Msg("Attempting Kubernetes API call")
+
+		result, err := operation()
+		if err == nil {
+			if attempt > 1 {
+				log.Info().
+					Int("attempt", attempt).
+					Str("operation", operationName).
+					Msg("Kubernetes API call succeeded after retry")
+			}
+			return result, nil
+		}
+
+		lastErr = err
+		log.Warn().
+			Err(err).
+			Int("attempt", attempt).
+			Int("max_retries", maxRetries).
+			Str("operation", operationName).
+			Msg("Kubernetes API call failed")
+
+		if attempt < maxRetries {
+			// Exponential backoff: 2s, 4s, 8s
+			delay := baseDelay * (1 << (attempt - 1))
+			log.Info().
+				Int("delay_seconds", delay).
+				Int("next_attempt", attempt+1).
+				Str("operation", operationName).
+				Msg("Retrying Kubernetes API call after delay")
+
+			select {
+			case <-ctx.Done():
+				return result, ctx.Err()
+			case <-time.After(time.Duration(delay) * time.Second):
+				// Continue to next attempt
+			}
+		}
+	}
+
+	return result, fmt.Errorf("failed %s after %d attempts: %w", operationName, maxRetries, lastErr)
+}
+
+// GetDetailedVersion retrieves detailed Kubernetes version information with retry logic
 func GetDetailedVersion(ctx context.Context) (*VersionInfo, error) {
-	client, err := GetSharedClient()
-	if err != nil {
-		return nil, fmt.Errorf("failed to get Kubernetes client: %w", err)
-	}
+	return retryKubernetesAPICall(ctx, func() (*VersionInfo, error) {
+		client, err := GetSharedClient()
+		if err != nil {
+			return nil, fmt.Errorf("failed to get Kubernetes client: %w", err)
+		}
 
-	version, err := client.clientset.Discovery().ServerVersion()
-	if err != nil {
-		return nil, fmt.Errorf("failed to get server version: %w", err)
-	}
+		version, err := client.clientset.Discovery().ServerVersion()
+		if err != nil {
+			return nil, fmt.Errorf("failed to get server version: %w", err)
+		}
 
-	return &VersionInfo{
-		GitVersion:   version.GitVersion,
-		Major:        version.Major,
-		Minor:        version.Minor,
-		GitCommit:    version.GitCommit,
-		GitTreeState: version.GitTreeState,
-		BuildDate:    version.BuildDate,
-		GoVersion:    version.GoVersion,
-		Compiler:     version.Compiler,
-		Platform:     version.Platform,
-	}, nil
+		return &VersionInfo{
+			GitVersion:   version.GitVersion,
+			Major:        version.Major,
+			Minor:        version.Minor,
+			GitCommit:    version.GitCommit,
+			GitTreeState: version.GitTreeState,
+			BuildDate:    version.BuildDate,
+			GoVersion:    version.GoVersion,
+			Compiler:     version.Compiler,
+			Platform:     version.Platform,
+		}, nil
+	}, "get detailed version")
 }
 
 // CompareVersions compares two Kubernetes versions

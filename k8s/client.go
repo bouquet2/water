@@ -220,40 +220,42 @@ func IsControlPlaneNode(ctx context.Context, nodeName string) (bool, error) {
 	return false, nil
 }
 
-// GetNodeEndpoint retrieves the endpoint (IP address) for a node
+// GetNodeEndpoint retrieves the endpoint (IP address) for a node with retry logic
 func GetNodeEndpoint(ctx context.Context, nodeName string) (string, error) {
-	client, err := GetSharedClient()
-	if err != nil {
-		return "", fmt.Errorf("failed to get Kubernetes client: %w", err)
-	}
-
-	node, err := client.clientset.CoreV1().Nodes().Get(ctx, nodeName, metav1.GetOptions{})
-	if err != nil {
-		return "", fmt.Errorf("failed to get node %s: %w", nodeName, err)
-	}
-
-	// Try to get the internal IP first
-	for _, address := range node.Status.Addresses {
-		if address.Type == corev1.NodeInternalIP {
-			return address.Address, nil
+	return retryKubernetesAPICall(ctx, func() (string, error) {
+		client, err := GetSharedClient()
+		if err != nil {
+			return "", fmt.Errorf("failed to get Kubernetes client: %w", err)
 		}
-	}
 
-	// Fall back to external IP if internal IP is not available
-	for _, address := range node.Status.Addresses {
-		if address.Type == corev1.NodeExternalIP {
-			return address.Address, nil
+		node, err := client.clientset.CoreV1().Nodes().Get(ctx, nodeName, metav1.GetOptions{})
+		if err != nil {
+			return "", fmt.Errorf("failed to get node %s: %w", nodeName, err)
 		}
-	}
 
-	// Fall back to hostname if no IP addresses are available
-	for _, address := range node.Status.Addresses {
-		if address.Type == corev1.NodeHostName {
-			return address.Address, nil
+		// Try to get the internal IP first
+		for _, address := range node.Status.Addresses {
+			if address.Type == corev1.NodeInternalIP {
+				return address.Address, nil
+			}
 		}
-	}
 
-	return "", fmt.Errorf("no suitable endpoint found for node %s", nodeName)
+		// Fall back to external IP if internal IP is not available
+		for _, address := range node.Status.Addresses {
+			if address.Type == corev1.NodeExternalIP {
+				return address.Address, nil
+			}
+		}
+
+		// Fall back to hostname if no IP addresses are available
+		for _, address := range node.Status.Addresses {
+			if address.Type == corev1.NodeHostName {
+				return address.Address, nil
+			}
+		}
+
+		return "", fmt.Errorf("no suitable endpoint found for node %s", nodeName)
+	}, fmt.Sprintf("get node endpoint for %s", nodeName))
 }
 
 // GetNodeInfo retrieves detailed information about a specific node

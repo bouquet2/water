@@ -108,10 +108,13 @@ func (m *Manager) PerformUpgrade() (*UpgradeResult, error) {
 		Int("total_nodes", len(clusterInfo.Nodes)).
 		Msg("Current vs target versions")
 
-	// Check if Talos upgrade is needed
-	talosNeedsUpgrade, err := version.NeedsUpgrade(clusterInfo.TalosVersion, m.config.Talos.Version)
-	if err != nil {
-		result.Errors = append(result.Errors, fmt.Errorf("failed to check Talos version: %w", err))
+	// Check if Talos upgrade is needed by examining individual nodes
+	talosNeedsUpgrade, nodesToUpgrade := m.checkTalosUpgradeNeeded(clusterInfo)
+	if len(nodesToUpgrade) > 0 {
+		log.Info().
+			Strs("nodes_to_upgrade", nodesToUpgrade).
+			Str("target_version", m.config.Talos.Version).
+			Msg("Some nodes need Talos upgrade")
 	}
 
 	// Check if target Talos version is available
@@ -318,9 +321,12 @@ func (m *Manager) upgradeNodesSequentiallyWithResult(nodeNames []string, allNode
 			return fmt.Errorf("node %s not found in cluster info", nodeName)
 		}
 
+		// Construct the full image reference by combining imageID with version
+		fullImageRef := m.config.Talos.ImageID + ":" + m.config.Talos.Version
+
 		// Upgrade the node
 		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
-		err := m.talosClient.UpgradeNode(ctx, nodeInfo.Endpoint, m.config.Talos.ImageID)
+		err := m.talosClient.UpgradeNode(ctx, nodeInfo.Endpoint, fullImageRef)
 		cancel()
 
 		if err != nil {
@@ -784,4 +790,40 @@ func (m *Manager) CheckOnly() error {
 	}
 
 	return nil
+}
+
+// checkTalosUpgradeNeeded checks if any nodes need Talos upgrade
+func (m *Manager) checkTalosUpgradeNeeded(clusterInfo *talos.ClusterInfo) (bool, []string) {
+	var nodesToUpgrade []string
+
+	for _, node := range clusterInfo.Nodes {
+		needsUpgrade, err := version.NeedsUpgrade(node.TalosVersion, m.config.Talos.Version)
+		if err != nil {
+			log.Warn().
+				Err(err).
+				Str("node", node.Name).
+				Str("current_version", node.TalosVersion).
+				Str("target_version", m.config.Talos.Version).
+				Msg("Failed to check if node needs upgrade, assuming it does")
+			nodesToUpgrade = append(nodesToUpgrade, node.Name)
+			continue
+		}
+
+		if needsUpgrade {
+			log.Debug().
+				Str("node", node.Name).
+				Str("current_version", node.TalosVersion).
+				Str("target_version", m.config.Talos.Version).
+				Msg("Node needs Talos upgrade")
+			nodesToUpgrade = append(nodesToUpgrade, node.Name)
+		} else {
+			log.Debug().
+				Str("node", node.Name).
+				Str("current_version", node.TalosVersion).
+				Str("target_version", m.config.Talos.Version).
+				Msg("Node already at target version")
+		}
+	}
+
+	return len(nodesToUpgrade) > 0, nodesToUpgrade
 }
