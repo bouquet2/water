@@ -31,7 +31,7 @@ Water uses a YAML configuration file to specify the desired versions for your cl
 
 ```yaml
 talos:
-  imageId: "8cdf4cd0a3a9fa4771aab65437032804940f2115b1b1ef6872274dde261fa319"
+  imageId: "factory.talos.dev/installer/8cdf4cd0a3a9fa4771aab65437032804940f2115b1b1ef6872274dde261fa319"
   version: "v1.10.5"
   upgradeOrder: "control-plane-first"  # Optional: "control-plane-first" or "workers-first"
 k8s:
