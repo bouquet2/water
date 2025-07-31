@@ -21,7 +21,9 @@ Simple upgrade tool made for [bouquet2](https://github.com/bouquet2/bouquet2)
 * Dry run mode 
 
 ## Installation
-Check out the implementation on bouquet2.
+
+### Binary Releases
+Download the latest binary for your platform from the [releases page](https://github.com/bouquet2/water/releases).
 
 ## Configuration
 

@@ -1,0 +1,14 @@
+version: 2
+
+builds:
+  - id: default
+    goos:
+      - linux
+      - darwin
+      - windows
+      - freebsd
+    env:
+      - CGO_ENABLED=0
+    ldflags:
+      - -X main.appVersion={{.Version}}
+    binary: water

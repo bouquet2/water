@@ -14,9 +14,9 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
-const (
+var (
 	appName    = "water"
-	appVersion = "1.0.0"
+	appVersion = "devel"
 )
 
 func main() {
