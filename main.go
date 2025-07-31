@@ -48,6 +48,13 @@ func main() {
 }
 
 func run(configPath, talosConfigPath, kubeconfigPath string, checkOnly bool, talosUpgradeOrder, k8sUpgradeOrder string) int {
+	// Display ASCII logo
+	fmt.Println(`                 __
+__  _  _______ _/  |_  ___________
+\ \/ \/ /\__  \\   __\/ __ \_  __ \
+ \     /  / __ \|  | \  ___/|  | \/
+  \/\_/  (____  /__|  \___  >__|
+              \/          \/       `)
 
 	log.Info().
 		Str("app", appName).
