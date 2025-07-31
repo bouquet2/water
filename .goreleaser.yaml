@@ -5,8 +5,10 @@ builds:
     goos:
       - linux
       - darwin
-      - windows
       - freebsd
+    goarch:
+      - amd64
+      - arm64
     env:
       - CGO_ENABLED=0
     ldflags:
