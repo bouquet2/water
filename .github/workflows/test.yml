@@ -19,7 +19,7 @@ jobs:
         uses: actions/setup-go@v4
 
       - name: Check GoReleaser config
-        uses: goreleaser/goreleaser-action@v5
+        uses: goreleaser/goreleaser-action@v6
         with:
           distribution: goreleaser
           version: "~> v2"
