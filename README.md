@@ -1,6 +1,3 @@
-> [!WARNING]  
-> This project is a work in progress and has not been battle-tested yet.
-
 ![BOTTLED_WATER.webp](./BOTTLED_WATER.webp)
 
 <sub><sup>logo from OMORI</sup></sub>
