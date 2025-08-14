@@ -10,6 +10,7 @@ import (
 	"github.com/bouquet2/water/talos"
 	"github.com/bouquet2/water/version"
 	"github.com/rs/zerolog/log"
+    "strings"
 )
 
 // Manager handles the upgrade process for Talos and Kubernetes
@@ -139,12 +140,31 @@ func (m *Manager) PerformUpgrade() (*UpgradeResult, error) {
 		log.Warn().
 			Str("target_version", m.config.K8s.Version).
 			Msg("Target Kubernetes version is not yet released - skipping Kubernetes upgrade")
-	} else {
-		// Check if Kubernetes upgrade is needed
-		k8sNeedsUpgrade, err := version.NeedsUpgrade(clusterInfo.K8sVersion, m.config.K8s.Version)
-		if err != nil {
-			result.Errors = append(result.Errors, fmt.Errorf("failed to check Kubernetes version: %w", err))
-		} else if k8sNeedsUpgrade {
+    } else {
+        // Check if Kubernetes upgrade is needed. Consider both API server and kubelet versions.
+        k8sNeedsUpgradeAPIServer, err := version.NeedsUpgrade(clusterInfo.K8sVersion, m.config.K8s.Version)
+        if err != nil {
+            result.Errors = append(result.Errors, fmt.Errorf("failed to check Kubernetes API server version: %w", err))
+        }
+
+        // Inspect kubelet versions across nodes via Kubernetes API
+        kubeletNeedsUpgrade := false
+        if ctx := context.Background(); err == nil { // only attempt if no prior error
+            if kubeClusterInfo, kErr := k8s.GetClusterInfo(ctx); kErr == nil {
+                for _, n := range kubeClusterInfo.Nodes {
+                    if needs, vErr := version.NeedsUpgrade(n.KubeletVersion, m.config.K8s.Version); vErr == nil && needs {
+                        kubeletNeedsUpgrade = true
+                        break
+                    }
+                }
+            } else {
+                log.Debug().Err(kErr).Msg("Failed to get Kubernetes node info for kubelet version check")
+            }
+        }
+
+        k8sNeedsUpgrade := k8sNeedsUpgradeAPIServer || kubeletNeedsUpgrade
+
+        if k8sNeedsUpgrade {
 			log.Info().Msg("Kubernetes upgrade required")
 
 			// If Talos was upgraded, wait a bit before upgrading Kubernetes
@@ -158,9 +178,9 @@ func (m *Manager) PerformUpgrade() (*UpgradeResult, error) {
 			} else {
 				result.K8sUpgraded = true
 			}
-		} else {
-			log.Info().Msg("Kubernetes is already at the target version")
-		}
+        } else {
+            log.Info().Msg("Kubernetes is already at the target version")
+        }
 	}
 
 	// Set final upgrade duration
@@ -651,8 +671,15 @@ func (m *Manager) checkNodeHealth(nodeName, targetVersion, upgradeType string) (
 			switch upgradeType {
 			case "talos":
 				return node.TalosVersion == targetVersion, nil
-			case "kubernetes":
-				return clusterInfo.K8sVersion == targetVersion, nil
+            case "kubernetes":
+                // Accept both plain and 'v'-prefixed versions
+                if clusterInfo.K8sVersion == targetVersion {
+                    return true, nil
+                }
+                if "v"+clusterInfo.K8sVersion == targetVersion || clusterInfo.K8sVersion == strings.TrimPrefix(targetVersion, "v") {
+                    return true, nil
+                }
+                return false, nil
 			default:
 				return false, fmt.Errorf("unknown upgrade type: %s", upgradeType)
 			}

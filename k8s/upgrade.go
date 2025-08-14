@@ -1,17 +1,42 @@
 package k8s
 
 import (
-	"context"
-	"fmt"
+    "context"
+    "fmt"
+    "io"
+    "os"
+    "regexp"
 
-	"github.com/rs/zerolog/log"
-	"github.com/siderolabs/go-kubernetes/kubernetes/upgrade"
-	"github.com/siderolabs/talos/pkg/cluster"
-	"github.com/siderolabs/talos/pkg/cluster/kubernetes"
-	"github.com/siderolabs/talos/pkg/machinery/client"
-	"github.com/siderolabs/talos/pkg/machinery/client/config"
+    "github.com/rs/zerolog/log"
+    "github.com/siderolabs/go-kubernetes/kubernetes/upgrade"
+    "github.com/siderolabs/talos/pkg/cluster"
+    "github.com/siderolabs/talos/pkg/cluster/kubernetes"
+    "github.com/siderolabs/talos/pkg/machinery/client"
+    "github.com/siderolabs/talos/pkg/machinery/client/config"
     talosconstants "github.com/siderolabs/talos/pkg/machinery/constants"
+    "github.com/siderolabs/talos/pkg/machinery/config/encoder"
 )
+
+// redactingWriter masks sensitive data like IP addresses in upstream logs.
+type redactingWriter struct {
+    w  io.Writer
+    re *regexp.Regexp
+}
+
+func newRedactingWriter(w io.Writer) *redactingWriter {
+    // IPv4 regex; simple and effective for log redaction
+    ipv4 := regexp.MustCompile(`\b(?:\d{1,3}\.){3}\d{1,3}\b`)
+    return &redactingWriter{w: w, re: ipv4}
+}
+
+func (r *redactingWriter) Write(p []byte) (int, error) {
+    redacted := r.re.ReplaceAllString(string(p), "[redacted]")
+    // Ensure newline termination to keep logs readable when upstream omits it
+    if len(redacted) == 0 || redacted[len(redacted)-1] != '\n' {
+        redacted += "\n"
+    }
+    return r.w.Write([]byte(redacted))
+}
 
 // UpgradeKubernetesOnNode upgrades Kubernetes on a single node using Talos cluster API
 func UpgradeKubernetesOnNode(ctx context.Context, talosClient *client.Client, talosConfig *config.Config, nodeEndpoint, targetVersion string) error {
@@ -48,8 +73,9 @@ func UpgradeKubernetesOnNode(ctx context.Context, talosClient *client.Client, ta
         Path:                 upgradePath,
         ControlPlaneEndpoint: nodeEndpoint,
         UpgradeKubelet:       true,
-        PrePullImages:        false,
+        PrePullImages:        true,
         DryRun:               false,
+        EncoderOpt:           encoder.WithComments(encoder.CommentsAll),
 
         // Explicitly set default image repositories required by Talos
         // to avoid Validate() failing on empty image references.
@@ -59,6 +85,9 @@ func UpgradeKubernetesOnNode(ctx context.Context, talosClient *client.Client, ta
         SchedulerImage:         talosconstants.KubernetesSchedulerImage,
         ProxyImage:             talosconstants.KubeProxyImage,
     }
+
+    // Route Talos upgrade logs through a redactor to avoid printing raw IPs
+    upgradeOptions.LogOutput = newRedactingWriter(os.Stdout)
 
 	// Use the actual Talos cluster.kubernetes.Upgrade function
 	// This is the proper way to upgrade Kubernetes in Talos environments
