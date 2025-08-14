@@ -10,6 +10,7 @@ import (
 	"github.com/siderolabs/talos/pkg/cluster/kubernetes"
 	"github.com/siderolabs/talos/pkg/machinery/client"
 	"github.com/siderolabs/talos/pkg/machinery/client/config"
+    talosconstants "github.com/siderolabs/talos/pkg/machinery/constants"
 )
 
 // UpgradeKubernetesOnNode upgrades Kubernetes on a single node using Talos cluster API
@@ -43,13 +44,21 @@ func UpgradeKubernetesOnNode(ctx context.Context, talosClient *client.Client, ta
 		ClientProvider: clientProvider,
 	}
 
-	upgradeOptions := kubernetes.UpgradeOptions{
-		Path:                 upgradePath,
-		ControlPlaneEndpoint: nodeEndpoint,
-		UpgradeKubelet:       true,
-		PrePullImages:        false,
-		DryRun:               false,
-	}
+    upgradeOptions := kubernetes.UpgradeOptions{
+        Path:                 upgradePath,
+        ControlPlaneEndpoint: nodeEndpoint,
+        UpgradeKubelet:       true,
+        PrePullImages:        false,
+        DryRun:               false,
+
+        // Explicitly set default image repositories required by Talos
+        // to avoid Validate() failing on empty image references.
+        KubeletImage:           talosconstants.KubeletImage,
+        APIServerImage:         talosconstants.KubernetesAPIServerImage,
+        ControllerManagerImage: talosconstants.KubernetesControllerManagerImage,
+        SchedulerImage:         talosconstants.KubernetesSchedulerImage,
+        ProxyImage:             talosconstants.KubeProxyImage,
+    }
 
 	// Use the actual Talos cluster.kubernetes.Upgrade function
 	// This is the proper way to upgrade Kubernetes in Talos environments
