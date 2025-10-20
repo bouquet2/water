@@ -8,7 +8,7 @@ require (
 	github.com/siderolabs/talos v1.11.3
 	github.com/siderolabs/talos/pkg/machinery v1.11.3
 	github.com/spf13/viper v1.21.0
-	golang.org/x/text v0.28.0
+	golang.org/x/text v0.30.0
 	google.golang.org/protobuf v1.36.8
 	k8s.io/api v0.34.1
 	k8s.io/apimachinery v0.34.1
