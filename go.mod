@@ -5,7 +5,7 @@ go 1.24.4
 require (
 	github.com/rs/zerolog v1.34.0
 	github.com/siderolabs/go-kubernetes v0.2.25
-	github.com/siderolabs/talos v1.10.6
+	github.com/siderolabs/talos v1.11.3
 	github.com/siderolabs/talos/pkg/machinery v1.11.3
 	github.com/spf13/viper v1.20.1
 	golang.org/x/text v0.28.0
