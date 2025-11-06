@@ -208,10 +208,14 @@ github.com/siderolabs/talos v1.11.3 h1:IdYuKv3Ofb0fz1wyAf863icNqPGOkkYwxWEgkubgX
 github.com/siderolabs/talos v1.11.3/go.mod h1:HmRmQBD3JkNPkHRwMiRNEzZKwY9VFIfyn7aOhD2Quls=
 github.com/siderolabs/talos v1.11.4 h1:K/y8uNYWmb0vCNskfc+H5OFRUGmks1aoVYyL7KhcJVs=
 github.com/siderolabs/talos v1.11.4/go.mod h1:XIX6s3kcJYdyhLfT6lnwP4sCEZbkpmLf7NQZXH8o2JE=
+github.com/siderolabs/talos v1.11.5 h1:0BGvCR3ATr8LrEMNmuo8MbZE4hmaghZVOWiyQCPXo1Q=
+github.com/siderolabs/talos v1.11.5/go.mod h1:MGJ/1xPP6We/qYwv0YwXkO1t50Nfg6nqcFBpCg+qT3o=
 github.com/siderolabs/talos/pkg/machinery v1.11.3 h1:rFjwS1mqn3HtkbBP+GxZ7GKSW8J1jj28JuRTE0eERF0=
 github.com/siderolabs/talos/pkg/machinery v1.11.3/go.mod h1:BWuhCGOFzm0RWPQ61arPG6A3GWLbo0KXN69N+Be+6Eg=
 github.com/siderolabs/talos/pkg/machinery v1.11.4 h1:6Q7tf1pjDtIwTxurvB+LMmY0juxjrmcx8ofEf0dmDNs=
 github.com/siderolabs/talos/pkg/machinery v1.11.4/go.mod h1:BWuhCGOFzm0RWPQ61arPG6A3GWLbo0KXN69N+Be+6Eg=
+github.com/siderolabs/talos/pkg/machinery v1.11.5 h1:RDt7pAoe5K6y99N66t+nkBaJsL8asQfcYYeIH2JSrGY=
+github.com/siderolabs/talos/pkg/machinery v1.11.5/go.mod h1:BWuhCGOFzm0RWPQ61arPG6A3GWLbo0KXN69N+Be+6Eg=
 github.com/sirupsen/logrus v1.9.3 h1:dueUQJ1C2q9oE3F7wvmSGAaVtTmUizReu6fjN8uqzbQ=
 github.com/sirupsen/logrus v1.9.3/go.mod h1:naHLuLoDiP4jHNo9R0sCBMtWGeIprob74mVsIT4qYEQ=
 github.com/sourcegraph/conc v0.3.1-0.20240121214520-5f936abd7ae8 h1:+jumHNA0Wrelhe64i8F6HNlS8pkoyMv5sreGx2Ry5Rw=
