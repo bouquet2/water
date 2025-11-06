@@ -6,7 +6,7 @@ require (
 	github.com/rs/zerolog v1.34.0
 	github.com/siderolabs/go-kubernetes v0.2.27
 	github.com/siderolabs/talos v1.11.4
-	github.com/siderolabs/talos/pkg/machinery v1.11.4
+	github.com/siderolabs/talos/pkg/machinery v1.11.5
 	github.com/spf13/viper v1.21.0
 	golang.org/x/text v0.30.0
 	google.golang.org/protobuf v1.36.10
