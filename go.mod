@@ -10,7 +10,7 @@ require (
 	github.com/spf13/viper v1.21.0
 	golang.org/x/text v0.32.0
 	google.golang.org/protobuf v1.36.11
-	k8s.io/api v0.34.3
+	k8s.io/api v0.35.0
 	k8s.io/apimachinery v0.34.3
 	k8s.io/client-go v0.35.0
 )
