@@ -8,7 +8,7 @@ require (
 	github.com/siderolabs/talos v1.12.4
 	github.com/siderolabs/talos/pkg/machinery v1.12.4
 	github.com/spf13/viper v1.21.0
-	golang.org/x/text v0.33.0
+	golang.org/x/text v0.35.0
 	google.golang.org/protobuf v1.36.11
 	k8s.io/api v0.35.1
 	k8s.io/apimachinery v0.35.1
@@ -109,7 +109,7 @@ require (
 	golang.org/x/exp v0.0.0-20250506013437-ce4c2cf36ca6 // indirect
 	golang.org/x/net v0.48.0 // indirect
 	golang.org/x/oauth2 v0.34.0 // indirect
-	golang.org/x/sync v0.19.0 // indirect
+	golang.org/x/sync v0.20.0 // indirect
 	golang.org/x/sys v0.40.0 // indirect
 	golang.org/x/term v0.38.0 // indirect
 	golang.org/x/time v0.14.0 // indirect
