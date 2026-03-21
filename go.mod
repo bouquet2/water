@@ -5,7 +5,7 @@ go 1.26.0
 require (
 	github.com/rs/zerolog v1.34.0
 	github.com/siderolabs/go-kubernetes v0.2.35
-	github.com/siderolabs/talos v1.12.4
+	github.com/siderolabs/talos v1.12.6
 	github.com/siderolabs/talos/pkg/machinery v1.13.0-beta.0
 	github.com/spf13/viper v1.21.0
 	golang.org/x/text v0.35.0
@@ -135,7 +135,7 @@ require (
 	golang.org/x/time v0.14.0 // indirect
 	google.golang.org/genproto/googleapis/api v0.0.0-20260311181403-84a4fc48630c // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20260311181403-84a4fc48630c // indirect
-	google.golang.org/grpc v1.78.0 // indirect
+	google.golang.org/grpc v1.79.3 // indirect
 	gopkg.in/evanphx/json-patch.v4 v4.13.0 // indirect
 	gopkg.in/inf.v0 v0.9.1 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
