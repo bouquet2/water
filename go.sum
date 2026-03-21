@@ -318,6 +318,8 @@ github.com/siderolabs/talos v1.11.5 h1:0BGvCR3ATr8LrEMNmuo8MbZE4hmaghZVOWiyQCPXo
 github.com/siderolabs/talos v1.11.5/go.mod h1:MGJ/1xPP6We/qYwv0YwXkO1t50Nfg6nqcFBpCg+qT3o=
 github.com/siderolabs/talos v1.12.4 h1:yb56apoLRsl0okrXbishc/3JPa9qXL8e0orJzBTNiAU=
 github.com/siderolabs/talos v1.12.4/go.mod h1:pfD/H7AiIeiQ0Ej4AeH/lza48f9vZh3alnMfbjda2MU=
+github.com/siderolabs/talos v1.12.6 h1:wHRZSkPC+jVDPXHPujREP/KjU421vL5AwnyhnLvVElI=
+github.com/siderolabs/talos v1.12.6/go.mod h1:cxeK07FJCNDKwu1vDM3fE1ywRfdvuktNQAYI19hryiU=
 github.com/siderolabs/talos/pkg/machinery v1.11.3 h1:rFjwS1mqn3HtkbBP+GxZ7GKSW8J1jj28JuRTE0eERF0=
 github.com/siderolabs/talos/pkg/machinery v1.11.3/go.mod h1:BWuhCGOFzm0RWPQ61arPG6A3GWLbo0KXN69N+Be+6Eg=
 github.com/siderolabs/talos/pkg/machinery v1.11.4 h1:6Q7tf1pjDtIwTxurvB+LMmY0juxjrmcx8ofEf0dmDNs=
@@ -538,6 +540,8 @@ google.golang.org/grpc v1.76.0 h1:UnVkv1+uMLYXoIz6o7chp59WfQUYA2ex/BXQ9rHZu7A=
 google.golang.org/grpc v1.76.0/go.mod h1:Ju12QI8M6iQJtbcsV+awF5a4hfJMLi4X0JLo94ULZ6c=
 google.golang.org/grpc v1.78.0 h1:K1XZG/yGDJnzMdd/uZHAkVqJE+xIDOcmdSFZkBUicNc=
 google.golang.org/grpc v1.78.0/go.mod h1:I47qjTo4OKbMkjA/aOOwxDIiPSBofUtQUI5EfpWvW7U=
+google.golang.org/grpc v1.79.3 h1:sybAEdRIEtvcD68Gx7dmnwjZKlyfuc61Dyo9pGXXkKE=
+google.golang.org/grpc v1.79.3/go.mod h1:KmT0Kjez+0dde/v2j9vzwoAScgEPx/Bw1CYChhHLrHQ=
 google.golang.org/protobuf v1.36.10 h1:AYd7cD/uASjIL6Q9LiTjz8JLcrh/88q5UObnmY3aOOE=
 google.golang.org/protobuf v1.36.10/go.mod h1:HTf+CrKn2C3g5S8VImy6tdcUvCska2kB7j23XfzDpco=
 google.golang.org/protobuf v1.36.11 h1:fV6ZwhNocDyBLK0dj+fg8ektcVegBBuEolpbTQyBNVE=
