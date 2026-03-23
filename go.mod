@@ -4,7 +4,7 @@ go 1.26.0
 
 require (
 	github.com/rs/zerolog v1.34.0
-	github.com/siderolabs/go-kubernetes v0.2.35
+	github.com/siderolabs/go-kubernetes v0.2.36
 	github.com/siderolabs/talos v1.12.6
 	github.com/siderolabs/talos/pkg/machinery v1.13.0-beta.0
 	github.com/spf13/viper v1.21.0
