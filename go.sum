@@ -294,6 +294,8 @@ github.com/siderolabs/go-kubernetes v0.2.28 h1:mnhVvSZLWfEBXS/OpZVnyDjtm2GS/Nq7r
 github.com/siderolabs/go-kubernetes v0.2.28/go.mod h1:iFJsycHXGtEyBDRlDyopAMS7UuzyiHeYl7lWjK8ZdxA=
 github.com/siderolabs/go-kubernetes v0.2.35 h1:DMkqDVJ/C/B0iqiTFDwSVvQkmansOqyaGYudPnm8ilM=
 github.com/siderolabs/go-kubernetes v0.2.35/go.mod h1:jQAuwnqjGD0wakL5OYJz8LrX2eYoDqgKrS2TnqesUoU=
+github.com/siderolabs/go-kubernetes v0.2.36 h1:n8p6c7M0kDnrm9WoQ8njHUs/k3o//kEh9t0eFsnHp9Q=
+github.com/siderolabs/go-kubernetes v0.2.36/go.mod h1:jQAuwnqjGD0wakL5OYJz8LrX2eYoDqgKrS2TnqesUoU=
 github.com/siderolabs/go-pointer v1.0.1 h1:f7Yi4IK1jptS8yrT9GEbwhmGcVxvPQgBUG/weH3V3DM=
 github.com/siderolabs/go-pointer v1.0.1/go.mod h1:C8Q/3pNHT4RE9e4rYR9PHeS6KPMlStRBgYrJQJNy/vA=
 github.com/siderolabs/go-procfs v0.1.2 h1:bDs9hHyYGE2HO1frpmUsD60yg80VIEDrx31fkbi4C8M=
