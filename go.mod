@@ -1,9 +1,9 @@
 module github.com/bouquet2/water
 
-go 1.25.8
+go 1.26.0
 
 require (
-	github.com/rs/zerolog v1.34.0
+	github.com/rs/zerolog v1.35.1
 	github.com/siderolabs/go-kubernetes v0.2.36
 	github.com/siderolabs/talos v1.12.6
 	github.com/siderolabs/talos/pkg/machinery v1.13.0-beta.0
