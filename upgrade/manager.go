@@ -10,20 +10,26 @@ import (
 	"github.com/bouquet2/water/talos"
 	"github.com/bouquet2/water/version"
 	"github.com/rs/zerolog/log"
-    "strings"
+	"k8s.io/client-go/kubernetes"
+	"strings"
 )
 
 // Manager handles the upgrade process for Talos and Kubernetes
 type Manager struct {
 	talosClient *talos.Client
 	config      *config.Config
+	forceModes  *ForceModes
 }
 
 // NewManager creates a new upgrade manager
-func NewManager(talosClient *talos.Client, cfg *config.Config) *Manager {
+func NewManager(talosClient *talos.Client, cfg *config.Config, forceModes *ForceModes) *Manager {
+	if forceModes == nil {
+		forceModes = NewForceModes()
+	}
 	return &Manager{
 		talosClient: talosClient,
 		config:      cfg,
+		forceModes:  forceModes,
 	}
 }
 
@@ -82,6 +88,12 @@ func (m *Manager) PerformUpgrade() (*UpgradeResult, error) {
 	log.Info().Msg("Starting upgrade process")
 	startTime := time.Now()
 
+	if m.forceModes.IsActive() {
+		log.Info().
+			Str("modes", m.forceModes.ModesString()).
+			Msg("Force modes active - bypassing safety checks")
+	}
+
 	result := &UpgradeResult{
 		NodesUpgraded: make([]string, 0),
 		FailedNodes:   make([]string, 0),
@@ -119,7 +131,9 @@ func (m *Manager) PerformUpgrade() (*UpgradeResult, error) {
 	}
 
 	// Check if target Talos version is available
-	if err := version.ValidateTargetVersion(m.config.Talos.Version, version.TalosRelease); err != nil {
+	if m.forceModes.IsForcingAvailability() {
+		log.Debug().Str("mode", "availability").Msg("Skipping Talos version availability check due to force mode")
+	} else if err := version.ValidateTargetVersion(m.config.Talos.Version, version.TalosRelease); err != nil {
 		log.Warn().
 			Str("target_version", m.config.Talos.Version).
 			Msg("Target Talos version is not yet released - skipping Talos upgrade")
@@ -136,35 +150,44 @@ func (m *Manager) PerformUpgrade() (*UpgradeResult, error) {
 	}
 
 	// Check if target Kubernetes version is available
-	if err := version.ValidateTargetVersion(m.config.K8s.Version, version.KubernetesRelease); err != nil {
+	if m.forceModes.IsForcingAvailability() {
+		log.Debug().Str("mode", "availability").Msg("Skipping Kubernetes version availability check due to force mode")
+	} else if err := version.ValidateTargetVersion(m.config.K8s.Version, version.KubernetesRelease); err != nil {
 		log.Warn().
 			Str("target_version", m.config.K8s.Version).
 			Msg("Target Kubernetes version is not yet released - skipping Kubernetes upgrade")
-    } else {
-        // Check if Kubernetes upgrade is needed. Consider both API server and kubelet versions.
-        k8sNeedsUpgradeAPIServer, err := version.NeedsUpgrade(clusterInfo.K8sVersion, m.config.K8s.Version)
-        if err != nil {
-            result.Errors = append(result.Errors, fmt.Errorf("failed to check Kubernetes API server version: %w", err))
-        }
+	} else {
+		// Check if Kubernetes upgrade is needed
+		var k8sNeedsUpgrade bool
+		if m.forceModes.IsForcingVersion() {
+			log.Debug().Str("mode", "version").Msg("Forcing Kubernetes upgrade due to force mode")
+			k8sNeedsUpgrade = true
+		} else {
+			// Check if Kubernetes upgrade is needed. Consider both API server and kubelet versions.
+			k8sNeedsUpgradeAPIServer, err := version.NeedsUpgrade(clusterInfo.K8sVersion, m.config.K8s.Version)
+			if err != nil {
+				result.Errors = append(result.Errors, fmt.Errorf("failed to check Kubernetes API server version: %w", err))
+			}
 
-        // Inspect kubelet versions across nodes via Kubernetes API
-        kubeletNeedsUpgrade := false
-        if ctx := context.Background(); err == nil { // only attempt if no prior error
-            if kubeClusterInfo, kErr := k8s.GetClusterInfo(ctx); kErr == nil {
-                for _, n := range kubeClusterInfo.Nodes {
-                    if needs, vErr := version.NeedsUpgrade(n.KubeletVersion, m.config.K8s.Version); vErr == nil && needs {
-                        kubeletNeedsUpgrade = true
-                        break
-                    }
-                }
-            } else {
-                log.Debug().Err(kErr).Msg("Failed to get Kubernetes node info for kubelet version check")
-            }
-        }
+			// Inspect kubelet versions across nodes via Kubernetes API
+			kubeletNeedsUpgrade := false
+			if ctx := context.Background(); err == nil { // only attempt if no prior error
+				if kubeClusterInfo, kErr := k8s.GetClusterInfo(ctx); kErr == nil {
+					for _, n := range kubeClusterInfo.Nodes {
+						if needs, vErr := version.NeedsUpgrade(n.KubeletVersion, m.config.K8s.Version); vErr == nil && needs {
+							kubeletNeedsUpgrade = true
+							break
+						}
+					}
+				} else {
+					log.Debug().Err(kErr).Msg("Failed to get Kubernetes node info for kubelet version check")
+				}
+			}
 
-        k8sNeedsUpgrade := k8sNeedsUpgradeAPIServer || kubeletNeedsUpgrade
+			k8sNeedsUpgrade = k8sNeedsUpgradeAPIServer || kubeletNeedsUpgrade
+		}
 
-        if k8sNeedsUpgrade {
+		if k8sNeedsUpgrade {
 			log.Info().Msg("Kubernetes upgrade required")
 
 			// If Talos was upgraded, wait a bit before upgrading Kubernetes
@@ -178,9 +201,9 @@ func (m *Manager) PerformUpgrade() (*UpgradeResult, error) {
 			} else {
 				result.K8sUpgraded = true
 			}
-        } else {
-            log.Info().Msg("Kubernetes is already at the target version")
-        }
+		} else {
+			log.Info().Msg("Kubernetes is already at the target version")
+		}
 	}
 
 	// Set final upgrade duration
@@ -322,10 +345,19 @@ func (m *Manager) upgradeNodesSequentially(nodeNames []string, allNodes []talos.
 
 // upgradeNodesSequentiallyWithResult upgrades a list of nodes one by one and tracks results
 func (m *Manager) upgradeNodesSequentiallyWithResult(nodeNames []string, allNodes []talos.NodeInfo, result *UpgradeResult) error {
-	// Create a map for quick node lookup
 	nodeMap := make(map[string]talos.NodeInfo)
 	for _, node := range allNodes {
 		nodeMap[node.Name] = node
+	}
+
+	ctx := context.Background()
+
+	var drainClient kubernetes.Interface
+	k8sClient, err := k8s.GetSharedClient()
+	if err != nil {
+		log.Warn().Err(err).Msg("Failed to get Kubernetes client for node draining")
+	} else {
+		drainClient = k8sClient.GetClientset()
 	}
 
 	for i, nodeName := range nodeNames {
@@ -335,19 +367,37 @@ func (m *Manager) upgradeNodesSequentiallyWithResult(nodeNames []string, allNode
 			Int("total", len(nodeNames)).
 			Msg("Starting upgrade for node")
 
-		// Get node info
 		nodeInfo, exists := nodeMap[nodeName]
 		if !exists {
 			return fmt.Errorf("node %s not found in cluster info", nodeName)
 		}
 
-		// Construct the full image reference by combining imageID with version
+		if drainClient != nil {
+			log.Info().Str("node", nodeName).Msg("Draining node before upgrade")
+
+			drainCtx, drainCancel := context.WithTimeout(ctx, talos.DefaultDrainTimeout)
+			err := talos.DrainNode(drainCtx, drainClient, nodeName, talos.DefaultDrainTimeout)
+			drainCancel()
+
+			if err != nil {
+				log.Error().
+					Str("node", nodeName).
+					Err(err).
+					Msg("Failed to drain node - proceeding with upgrade anyway")
+
+				if result != nil {
+					result.Errors = append(result.Errors, fmt.Errorf("failed to drain node %s: %w", nodeName, err))
+				}
+			} else {
+				log.Info().Str("node", nodeName).Msg("Node drained successfully")
+			}
+		}
+
 		fullImageRef := m.config.Talos.ImageID + ":" + m.config.Talos.Version
 
-		// Upgrade the node
-		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
-		err := m.talosClient.UpgradeNode(ctx, nodeInfo.Endpoint, fullImageRef)
-		cancel()
+		upgradeCtx, upgradeCancel := context.WithTimeout(ctx, 10*time.Minute)
+		err = m.talosClient.UpgradeNode(upgradeCtx, nodeInfo.Endpoint, fullImageRef)
+		upgradeCancel()
 
 		if err != nil {
 			log.Error().
@@ -355,19 +405,26 @@ func (m *Manager) upgradeNodesSequentiallyWithResult(nodeNames []string, allNode
 				Err(err).
 				Msg("Failed to upgrade node")
 
+			if drainClient != nil {
+				uncordonCtx, uncordonCancel := context.WithTimeout(ctx, 30*time.Second)
+				uncordonErr := talos.UncordonNode(uncordonCtx, drainClient, nodeName)
+				uncordonCancel()
+				if uncordonErr != nil {
+					log.Warn().Str("node", nodeName).Err(uncordonErr).Msg("Failed to uncordon after upgrade failure")
+				}
+			}
+
 			if result != nil {
 				result.AddFailedNode(nodeName)
 				result.Errors = append(result.Errors, fmt.Errorf("failed to upgrade node %s: %w", nodeName, err))
 			}
 
-			// Continue with other nodes instead of failing completely
 			continue
 		}
 
 		log.Info().Str("node", nodeName).Msg("Upgrade initiated, waiting for node to reboot")
 
-		// Wait for the node to reboot and come back online
-		waitCtx, waitCancel := context.WithTimeout(context.Background(), 8*time.Minute)
+		waitCtx, waitCancel := context.WithTimeout(ctx, 8*time.Minute)
 		err = m.talosClient.WaitForNodeReboot(waitCtx, nodeInfo.Endpoint, 8*time.Minute)
 		waitCancel()
 
@@ -377,6 +434,15 @@ func (m *Manager) upgradeNodesSequentiallyWithResult(nodeNames []string, allNode
 				Err(err).
 				Msg("Node may not have come back online within timeout")
 
+			if drainClient != nil {
+				uncordonCtx, uncordonCancel := context.WithTimeout(ctx, 30*time.Second)
+				uncordonErr := talos.UncordonNode(uncordonCtx, drainClient, nodeName)
+				uncordonCancel()
+				if uncordonErr != nil {
+					log.Warn().Str("node", nodeName).Err(uncordonErr).Msg("Failed to uncordon after reboot timeout")
+				}
+			}
+
 			if result != nil {
 				result.AddFailedNode(nodeName)
 				result.Errors = append(result.Errors, fmt.Errorf("node %s failed to come back online: %w", nodeName, err))
@@ -384,25 +450,35 @@ func (m *Manager) upgradeNodesSequentiallyWithResult(nodeNames []string, allNode
 		} else {
 			log.Info().Str("node", nodeName).Msg("Node upgrade completed successfully")
 
+			if drainClient != nil {
+				uncordonCtx, uncordonCancel := context.WithTimeout(ctx, 30*time.Second)
+				uncordonErr := talos.UncordonNode(uncordonCtx, drainClient, nodeName)
+				uncordonCancel()
+				if uncordonErr != nil {
+					log.Warn().Str("node", nodeName).Err(uncordonErr).Msg("Failed to uncordon after successful upgrade")
+					if result != nil {
+						result.Errors = append(result.Errors, fmt.Errorf("failed to uncordon node %s: %w", nodeName, uncordonErr))
+					}
+				} else {
+					log.Info().Str("node", nodeName).Msg("Node uncordoned successfully")
+				}
+			}
+
 			if result != nil {
 				result.AddUpgradedNode(nodeName)
 			}
 		}
 
-		// Wait a bit between nodes to avoid overwhelming the cluster
 		if i < len(nodeNames)-1 {
 			log.Info().Msg("Waiting before upgrading next node...")
 			time.Sleep(30 * time.Second)
 		}
 	}
 
-	// Monitor the overall upgrade progress for all nodes
 	log.Info().Strs("nodes", nodeNames).Msg("Starting post-upgrade monitoring")
-	ctx := context.Background()
-	err := m.monitorUpgradeProgress(ctx, m.config.Talos.Version, nodeNames, "talos")
+	err = m.monitorUpgradeProgress(ctx, m.config.Talos.Version, nodeNames, "talos")
 	if err != nil {
 		log.Error().Err(err).Msg("Upgrade monitoring detected issues")
-		// Note: In a production system, you might want to trigger rollback here
 		return fmt.Errorf("upgrade monitoring failed: %w", err)
 	}
 
@@ -671,15 +747,15 @@ func (m *Manager) checkNodeHealth(nodeName, targetVersion, upgradeType string) (
 			switch upgradeType {
 			case "talos":
 				return node.TalosVersion == targetVersion, nil
-            case "kubernetes":
-                // Accept both plain and 'v'-prefixed versions
-                if clusterInfo.K8sVersion == targetVersion {
-                    return true, nil
-                }
-                if "v"+clusterInfo.K8sVersion == targetVersion || clusterInfo.K8sVersion == strings.TrimPrefix(targetVersion, "v") {
-                    return true, nil
-                }
-                return false, nil
+			case "kubernetes":
+				// Accept both plain and 'v'-prefixed versions
+				if clusterInfo.K8sVersion == targetVersion {
+					return true, nil
+				}
+				if "v"+clusterInfo.K8sVersion == targetVersion || clusterInfo.K8sVersion == strings.TrimPrefix(targetVersion, "v") {
+					return true, nil
+				}
+				return false, nil
 			default:
 				return false, fmt.Errorf("unknown upgrade type: %s", upgradeType)
 			}
@@ -706,38 +782,48 @@ func (m *Manager) validateUpgradePrerequisites() error {
 	// Get current cluster information
 	clusterInfo, err := m.talosClient.GetClusterInfo()
 	if err != nil {
+		if m.forceModes.IsForcingAll() {
+			log.Debug().Str("mode", "all").Msg("Skipping cluster info check due to force mode")
+			return nil
+		}
 		return fmt.Errorf("failed to get cluster information for validation: %w", err)
 	}
 
-	// Check if all nodes are ready
-	var notReadyNodes []string
-	for _, node := range clusterInfo.Nodes {
-		if !node.Ready {
-			notReadyNodes = append(notReadyNodes, node.Name)
+	// Check if all nodes are ready (skip if forcing readiness)
+	if m.forceModes.IsForcingReadiness() {
+		log.Debug().Str("mode", "readiness").Msg("Skipping node readiness check due to force mode")
+	} else {
+		var notReadyNodes []string
+		for _, node := range clusterInfo.Nodes {
+			if !node.Ready {
+				notReadyNodes = append(notReadyNodes, node.Name)
+			}
+		}
+
+		if len(notReadyNodes) > 0 {
+			return fmt.Errorf("some nodes are not ready for upgrade: %v", notReadyNodes)
 		}
 	}
 
-	if len(notReadyNodes) > 0 {
-		return fmt.Errorf("some nodes are not ready for upgrade: %v", notReadyNodes)
-	}
-
-	// Check if we have at least one control plane node
-	var controlPlaneCount int
-	for _, node := range clusterInfo.Nodes {
-		if node.IsControlPlane {
-			controlPlaneCount++
+	// Check if we have at least one control plane node (skip if forcing all)
+	if m.forceModes.IsForcingAll() {
+		log.Debug().Str("mode", "all").Msg("Skipping control plane check due to force mode")
+	} else {
+		var controlPlaneCount int
+		for _, node := range clusterInfo.Nodes {
+			if node.IsControlPlane {
+				controlPlaneCount++
+			}
 		}
-	}
 
-	if controlPlaneCount == 0 {
-		return fmt.Errorf("no control plane nodes found in cluster")
+		if controlPlaneCount == 0 {
+			return fmt.Errorf("no control plane nodes found in cluster")
+		}
 	}
 
 	log.Info().
 		Int("total_nodes", len(clusterInfo.Nodes)).
-		Int("control_plane_nodes", controlPlaneCount).
-		Int("worker_nodes", len(clusterInfo.Nodes)-controlPlaneCount).
-		Msg("Upgrade prerequisites validated successfully")
+		Msg("Upgrade prerequisites validated (with force modes)")
 
 	return nil
 }
@@ -751,14 +837,22 @@ func (m *Manager) CheckOnly() error {
 	}
 
 	// Check Talos version
-	talosNeedsUpgrade, err := version.NeedsUpgrade(clusterInfo.TalosVersion, m.config.Talos.Version)
-	if err != nil {
-		return fmt.Errorf("failed to check Talos version: %w", err)
+	var talosNeedsUpgrade bool
+	if m.forceModes.IsForcingVersion() {
+		log.Debug().Str("mode", "version").Msg("Forcing Talos upgrade check due to force mode")
+		talosNeedsUpgrade = true
+	} else {
+		talosNeedsUpgrade, err = version.NeedsUpgrade(clusterInfo.TalosVersion, m.config.Talos.Version)
+		if err != nil {
+			return fmt.Errorf("failed to check Talos version: %w", err)
+		}
 	}
 
 	// Check if target Talos version is available
 	talosVersionAvailable := true
-	if err := version.ValidateTargetVersion(m.config.Talos.Version, version.TalosRelease); err != nil {
+	if m.forceModes.IsForcingAvailability() {
+		log.Debug().Str("mode", "availability").Msg("Skipping Talos version availability check due to force mode")
+	} else if err := version.ValidateTargetVersion(m.config.Talos.Version, version.TalosRelease); err != nil {
 		log.Warn().
 			Str("target_version", m.config.Talos.Version).
 			Msg("Target Talos version is not yet released - skipping Talos upgrade check")
@@ -769,13 +863,20 @@ func (m *Manager) CheckOnly() error {
 	// Check if target Kubernetes version is available
 	k8sNeedsUpgrade := false
 	k8sVersionAvailable := true
-	if err := version.ValidateTargetVersion(m.config.K8s.Version, version.KubernetesRelease); err != nil {
+	if m.forceModes.IsForcingAvailability() {
+		log.Debug().Str("mode", "availability").Msg("Skipping Kubernetes version availability check due to force mode")
+	} else if err := version.ValidateTargetVersion(m.config.K8s.Version, version.KubernetesRelease); err != nil {
 		log.Warn().
 			Str("target_version", m.config.K8s.Version).
 			Msg("Target Kubernetes version is not yet released - skipping Kubernetes upgrade check")
 		k8sVersionAvailable = false
-	} else {
-		// Check Kubernetes version only if target version is available
+	}
+
+	// Check Kubernetes version if not forcing availability check or if version is available
+	if m.forceModes.IsForcingVersion() {
+		log.Debug().Str("mode", "version").Msg("Forcing Kubernetes upgrade check due to force mode")
+		k8sNeedsUpgrade = true
+	} else if k8sVersionAvailable || m.forceModes.IsForcingAvailability() {
 		var err error
 		k8sNeedsUpgrade, err = version.NeedsUpgrade(clusterInfo.K8sVersion, m.config.K8s.Version)
 		if err != nil {
@@ -821,6 +922,15 @@ func (m *Manager) CheckOnly() error {
 
 // checkTalosUpgradeNeeded checks if any nodes need Talos upgrade
 func (m *Manager) checkTalosUpgradeNeeded(clusterInfo *talos.ClusterInfo) (bool, []string) {
+	if m.forceModes.IsForcingVersion() {
+		log.Debug().Str("mode", "version").Msg("Forcing Talos upgrade on all nodes due to force mode")
+		var allNodes []string
+		for _, node := range clusterInfo.Nodes {
+			allNodes = append(allNodes, node.Name)
+		}
+		return len(allNodes) > 0, allNodes
+	}
+
 	var nodesToUpgrade []string
 
 	for _, node := range clusterInfo.Nodes {

@@ -32,6 +32,8 @@ func main() {
 		talosUpgradeOrder = flag.String("talos-upgrade-order", "", "Override Talos upgrade order: 'control-plane-first' or 'workers-first'")
 		k8sUpgradeOrder   = flag.String("k8s-upgrade-order", "", "Override Kubernetes upgrade order: 'control-plane-first' or 'workers-first'")
 	)
+	forceModes := upgrade.NewForceModes()
+	flag.Var(forceModes, "force", "Force upgrade bypassing safety checks: 'version' (default), 'availability', 'readiness', 'all', or combine with commas")
 	flag.Parse()
 
 	// Show version and exit
@@ -44,10 +46,10 @@ func main() {
 	setupLogging(*verbose, *quiet)
 
 	// Run the main application logic and exit with the returned code
-	os.Exit(run(*configPath, *talosConfigPath, *kubeconfigPath, *checkOnly, *talosUpgradeOrder, *k8sUpgradeOrder))
+	os.Exit(run(*configPath, *talosConfigPath, *kubeconfigPath, *checkOnly, *talosUpgradeOrder, *k8sUpgradeOrder, forceModes))
 }
 
-func run(configPath, talosConfigPath, kubeconfigPath string, checkOnly bool, talosUpgradeOrder, k8sUpgradeOrder string) int {
+func run(configPath, talosConfigPath, kubeconfigPath string, checkOnly bool, talosUpgradeOrder, k8sUpgradeOrder string, forceModes *upgrade.ForceModes) int {
 	// Display ASCII logo
 	fmt.Println(`                 __
 __  _  _______ _/  |_  ___________
@@ -119,7 +121,7 @@ __  _  _______ _/  |_  ___________
 	}()
 
 	// Create upgrade manager
-	upgradeManager := upgrade.NewManager(talosClient, cfg)
+	upgradeManager := upgrade.NewManager(talosClient, cfg, forceModes)
 
 	// Perform the operation
 	if checkOnly {

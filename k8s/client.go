@@ -118,6 +118,11 @@ func GetSharedClientWithKubeconfig(kubeconfigPath string) (*Client, error) {
 	return globalClient, nil
 }
 
+// GetClientset returns the underlying Kubernetes clientset for direct API access
+func (c *Client) GetClientset() kubernetes.Interface {
+	return c.clientset
+}
+
 // InitializeClient initializes the global client with a specific kubeconfig path
 // This should be called early in the application lifecycle
 func InitializeClient(kubeconfigPath string) error {
