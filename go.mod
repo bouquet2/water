@@ -3,12 +3,13 @@ module github.com/bouquet2/water
 go 1.26.0
 
 require (
+	github.com/blang/semver/v4 v4.0.0
 	github.com/rs/zerolog v1.34.0
 	github.com/siderolabs/go-kubernetes v0.2.36
 	github.com/siderolabs/talos v1.12.6
 	github.com/siderolabs/talos/pkg/machinery v1.13.0-beta.0
 	github.com/spf13/viper v1.21.0
-	golang.org/x/text v0.35.0
+	golang.org/x/text v0.41.0
 	google.golang.org/protobuf v1.36.12-0.20260120151049-f2248ac996af
 	k8s.io/api v0.35.3
 	k8s.io/apimachinery v0.35.3
@@ -24,7 +25,6 @@ require (
 	github.com/ProtonMail/gopenpgp/v2 v2.9.0 // indirect
 	github.com/adrg/xdg v0.5.3 // indirect
 	github.com/antlr4-go/antlr/v4 v4.13.1 // indirect
-	github.com/blang/semver/v4 v4.0.0 // indirect
 	github.com/cenkalti/backoff/v4 v4.3.0 // indirect
 	github.com/chai2010/gettext-go v1.0.2 // indirect
 	github.com/cloudflare/circl v1.6.3 // indirect
@@ -124,7 +124,7 @@ require (
 	golang.org/x/exp v0.0.0-20250506013437-ce4c2cf36ca6 // indirect
 	golang.org/x/net v0.52.0 // indirect
 	golang.org/x/oauth2 v0.36.0 // indirect
-	golang.org/x/sync v0.20.0 // indirect
+	golang.org/x/sync v0.22.0 // indirect
 	golang.org/x/sys v0.42.0 // indirect
 	golang.org/x/term v0.41.0 // indirect
 	golang.org/x/time v0.14.0 // indirect
