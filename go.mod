@@ -3,7 +3,8 @@ module github.com/bouquet2/water
 go 1.26.0
 
 require (
-	github.com/rs/zerolog v1.34.0
+	github.com/blang/semver/v4 v4.0.0
+	github.com/rs/zerolog v1.35.1
 	github.com/siderolabs/go-kubernetes v0.2.36
 	github.com/siderolabs/talos v1.12.6
 	github.com/siderolabs/talos/pkg/machinery v1.13.0-beta.0
@@ -24,7 +25,6 @@ require (
 	github.com/ProtonMail/gopenpgp/v2 v2.9.0 // indirect
 	github.com/adrg/xdg v0.5.3 // indirect
 	github.com/antlr4-go/antlr/v4 v4.13.1 // indirect
-	github.com/blang/semver/v4 v4.0.0 // indirect
 	github.com/cenkalti/backoff/v4 v4.3.0 // indirect
 	github.com/chai2010/gettext-go v1.0.2 // indirect
 	github.com/cloudflare/circl v1.6.3 // indirect
